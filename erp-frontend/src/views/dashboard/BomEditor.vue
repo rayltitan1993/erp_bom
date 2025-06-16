@@ -13,14 +13,21 @@
       <el-button @click="exportToExcel" type="info">导出Excel</el-button>
     </div>
     
-    <el-table :data="bomData.materials" border style="width: 100%; margin-top: 10px;">
-      <el-table-column type="index" label="序号" width="60"></el-table-column>
-      <el-table-column label="BOM材料名称" prop="bomMaterialName"><template #default="scope"><el-input v-model="scope.row.bomMaterialName" /></template></el-table-column>
-      <el-table-column label="使用部位" prop="partUsed"><template #default="scope"><el-input v-model="scope.row.partUsed" /></template></el-table-column>
-      <el-table-column label="材料货号" prop="materialItemNumber"><template #default="scope"><el-input v-model="scope.row.materialItemNumber" /></template></el-table-column>
-      <el-table-column label="单件用量" prop="unitConsumption"><template #default="scope"><el-input-number v-model="scope.row.unitConsumption" :precision="3" :step="0.001" /></template></el-table-column>
-      <el-table-column label="单位" prop="unit"><template #default="scope"><el-input v-model="scope.row.unit" /></template></el-table-column>
-      <el-table-column label="操作" width="80">
+    <el-table :data="bomData.materials" border style="width: 100%; margin-top: 10px;" size="small">
+      <el-table-column type="index" label="序号" width="55" fixed></el-table-column>
+      <el-table-column label="款式BOM材料名称" width="150"><template #default="scope"><el-input v-model="scope.row.bomMaterialName" /></template></el-table-column>
+      <el-table-column label="使用部位" width="120"><template #default="scope"><el-input v-model="scope.row.partUsed" /></template></el-table-column>
+      <el-table-column label="材料类别" width="120"><template #default="scope"><el-input v-model="scope.row.materialCategory" /></template></el-table-column>
+      <el-table-column label="材料货号" width="150"><template #default="scope"><el-input v-model="scope.row.materialItemNumber" /></template></el-table-column>
+      <el-table-column label="材料名称" width="150"><template #default="scope"><el-input v-model="scope.row.materialName" /></template></el-table-column>
+      <el-table-column label="颜色规则" width="120"><template #default="scope"><el-input v-model="scope.row.colorRule" /></template></el-table-column>
+      <el-table-column label="规格规则" width="120"><template #default="scope"><el-input v-model="scope.row.specRule" /></template></el-table-column>
+      <el-table-column label="用量规则" width="120"><template #default="scope"><el-input v-model="scope.row.consumptionRule" /></template></el-table-column>
+      <el-table-column label="颜色" width="120"><template #default="scope"><el-input v-model="scope.row.color" /></template></el-table-column>
+      <el-table-column label="规格" width="120"><template #default="scope"><el-input v-model="scope.row.spec" /></template></el-table-column>
+      <el-table-column label="单件用量" width="150"><template #default="scope"><el-input-number v-model="scope.row.unitConsumption" :precision="3" :step="0.001" controls-position="right" style="width: 100%" /></template></el-table-column>
+      <el-table-column label="单位" width="80"><template #default="scope"><el-input v-model="scope.row.unit" /></template></el-table-column>
+      <el-table-column label="操作" width="80" fixed="right">
         <template #default="scope">
           <el-button type="danger" link @click="removeMaterialRow(scope.$index)">删除</el-button>
         </template>
@@ -40,7 +47,7 @@ import { useRouter } from 'vue-router';
 import styleService from '../../services/style.service'; 
 import bomService from '../../services/bom.service';
 import { ElMessage } from 'element-plus';
-import * as XLSX from 'xlsx'; // 1. 引入 xlsx 库
+import * as XLSX from 'xlsx';
 
 const props = defineProps({ styleId: String, variantId: String });
 const router = useRouter();
@@ -51,14 +58,13 @@ const bomData = reactive({ materials: [] });
 const addMaterialRow = () => bomData.materials.push({});
 const removeMaterialRow = (index) => bomData.materials.splice(index, 1);
 
-// 2. 新增导出Excel的函数
 const exportToExcel = () => {
   if (bomData.materials.length === 0) {
     ElMessage.warning('没有可导出的BOM数据。');
     return;
   }
   
-  // 定义Excel表头的中英文映射
+  // --- 关键更新：扩展表头映射以包含所有字段 ---
   const headerMapping = {
     bomMaterialName: '款式BOM材料名称',
     partUsed: '使用部位',
@@ -74,26 +80,24 @@ const exportToExcel = () => {
     unit: '单位'
   };
 
-  // 准备要导出的数据，添加序号并转换表头为中文
   const dataToExport = bomData.materials.map((item, index) => {
     const newItem = { '序号': index + 1 };
     for (const key in headerMapping) {
-      newItem[headerMapping[key]] = item[key];
+        // 如果item中没有这个key，给一个空值，防止导出undefined
+        newItem[headerMapping[key]] = item[key] || '';
     }
     return newItem;
   });
 
-  // 使用 XLSX 生成工作簿
   const worksheet = XLSX.utils.json_to_sheet(dataToExport);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'BOM_Sheet');
-
-  // 生成文件名并触发下载
-  const fileName = `${styleInfo.styleNumber}_BOM.xlsx`;
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'BOM详情');
+  
+  const fileName = `${styleInfo.styleNumber}_${styleInfo.name}_BOM.xlsx`;
   XLSX.writeFile(workbook, fileName);
 };
 
-const loadData = async () => {
+async function loadData() {
   try {
     const style = await styleService.getStyle(props.styleId);
     styleInfo.name = style.name;
@@ -106,9 +110,9 @@ const loadData = async () => {
   } catch (error) {
     ElMessage.error('加载BOM数据失败');
   }
-};
+}
 
-const saveBom = async () => {
+async function saveBom() {
   try {
     const payload = {
       styleId: props.styleId,
@@ -121,7 +125,7 @@ const saveBom = async () => {
   } catch (error) {
     ElMessage.error('BOM保存失败');
   }
-};
+}
 
 const cancel = () => router.back();
 

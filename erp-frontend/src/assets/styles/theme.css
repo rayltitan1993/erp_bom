@@ -1,0 +1,95 @@
+/* :root 选择器用于定义全局CSS变量 */
+:root {
+  /* 颜色系统 - 全新浅色调色盘 */
+  --erp-bg-main: #F8F9FD; /* 主背景色，非常浅的灰蓝色 */
+  --erp-bg-panel: #FFFFFF; /* 面板/卡片背景色，纯白 */
+  --erp-bg-sidebar: #FFFFFF; /* 侧边栏背景色，也是纯白 */
+  --erp-text-primary: #1E293B; /* 主要文字/标题颜色，深灰色 */
+  --erp-text-secondary: #64748B; /* 次要文字颜色，中等灰色 */
+  --erp-accent-primary: #F78A3E; /* 主要强调色，柔和的橙色 */
+  --erp-accent-secondary: #4D4CAC; /* 次要强调色，专业的深蓝色 */
+  
+  /* 边框与阴影 */
+  --erp-border-radius: 8px; /* 圆角可以稍微小一点，更显干练 */
+  --erp-border-color: #E2E8F0; /* 全局边框颜色，浅灰色 */
+  --erp-panel-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* 更柔和、自然的阴影 */
+
+  /* 字体 */
+  --erp-font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* 全局基础样式重置 */
+body {
+  background-color: var(--erp-bg-main);
+  color: var(--erp-text-secondary); /* 默认文字颜色使用次要灰色 */
+  font-family: var(--erp-font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 重写Element Plus的全局CSS变量，适配新的浅色主题 */
+:root {
+  --el-color-primary: var(--erp-accent-primary);
+  --el-color-success: #10B981;
+  --el-color-warning: #F59E0B;
+  --el-color-danger: #EF4444;
+  --el-color-info: var(--erp-text-secondary);
+  
+  --el-bg-color: var(--erp-bg-panel);
+  --el-bg-color-page: var(--erp-bg-main);
+  --el-bg-color-overlay: var(--erp-bg-panel);
+
+  --el-text-color-primary: var(--erp-text-primary);
+  --el-text-color-regular: var(--erp-text-secondary);
+  --el-text-color-placeholder: #94A3B8;
+  --el-text-color-disabled: #CBD5E1;
+
+  --el-border-color: var(--erp-border-color);
+  --el-border-color-light: #F1F5F9;
+  --el-border-color-lighter: #F8FAFC;
+  --el-border-color-extra-light: #F8FAFC;
+  
+  --el-fill-color-blank: var(--erp-bg-main);
+  --el-fill-color: #F1F5F9;
+  --el-fill-color-light: #F8FAFC;
+
+  --el-border-radius-base: var(--erp-border-radius);
+  --el-box-shadow-light: var(--erp-panel-shadow);
+}
+
+/* 对特定Element Plus组件进行微调以达到最佳效果 */
+.el-card, .el-table {
+  background-color: var(--erp-bg-panel) !important;
+  border: 1px solid var(--erp-border-color) !important;
+  box-shadow: var(--erp-panel-shadow) !important;
+  /* 去掉上次的玻璃效果 */
+  backdrop-filter: none; 
+  border-radius: var(--erp-border-radius) !important;
+}
+
+.el-table th.el-table__cell {
+    background-color: #F8FAFC !important; /* 表头给一个极浅的灰色背景 */
+    color: var(--erp-text-secondary);
+}
+
+.el-table th, .el-table tr {
+  background-color: transparent !important;
+}
+
+.el-table--border .el-table__inner-wrapper::after, .el-table--border::after, .el-table--border::before, .el-table__inner-wrapper::before {
+    background-color: var(--erp-border-color);
+}
+
+.el-table td, .el-table th.is-leaf {
+    border-bottom: 1px solid var(--erp-border-color);
+}
+
+.el-input__wrapper, .el-select__wrapper {
+  background-color: var(--el-bg-color) !important;
+  box-shadow: none !important;
+  border: 1px solid var(--erp-border-color);
+}
+
+.el-divider__text {
+    background-color: var(--erp-bg-main);
+}

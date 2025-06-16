@@ -3,15 +3,12 @@
 </template>
 
 <script setup>
-// 这个文件现在不需要任何 script 逻辑
 </script>
 
 <style>
-/* 可以在这里放一些全局样式，如果需要的话 */
-/* 比如，清除默认的边距 */
-body, html {
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+/* 确保整个应用有一个统一的根字体和背景色 */
+#app {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 </style>
