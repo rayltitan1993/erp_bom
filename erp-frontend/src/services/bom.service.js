@@ -11,6 +11,12 @@ class BomService {
         // 一个统一的保存接口，后端逻辑判断是新增还是更新
         return api.post('/boms', payload).then(res => res.data);
     }
+
+    // 新增方法
+    getBomsForStyle(styleId) {
+        return api.get(`/boms/style/${styleId}`).then(res => res.data);
+    }
 }
+
 
 export default new BomService();

@@ -1,6 +1,7 @@
 // 核心依赖引入
 const express = require('express');
 const mongoose = require('mongoose');
+const path = require('path'); // <-- 新增引入 path 模块
 const cors = require('cors');
 require('dotenv').config(); // 加载 .env 文件中的环境变量
 
@@ -9,6 +10,8 @@ const authRoutes = require('./src/api/auth.routes');
 const userRoutes = require('./src/api/user.routes');
 const styleRoutes = require('./src/api/style.routes');
 const bomRoutes = require('./src/api/bom.routes'); // 引入BOM路由
+const uploadRoutes = require('./src/api/upload.routes'); // <-- 1. 引入上传路由
+
 
 // --- 2. 引入所有数据模型 ---
 // 引入 User 模型用于创建管理员账号
@@ -28,6 +31,8 @@ app.use(cors());
 
 // 启用 JSON 解析，让服务器能处理 application/json 格式的请求体
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
 
 
 // --- 4. 挂载 API 路由 (API Routes) ---
@@ -36,6 +41,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/styles', styleRoutes);
 app.use('/api/boms', bomRoutes); // 挂载BOM路由
+app.use('/api/upload', uploadRoutes); // <-- 挂载上传路由
+
 
 
 // --- 5. 数据库连接与服务器启动 ---

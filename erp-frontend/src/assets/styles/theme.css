@@ -93,3 +93,29 @@ body {
 .el-divider__text {
     background-color: var(--erp-bg-main);
 }
+
+/* --- [终极修复] Element Plus 表格固定列背景透明 Bug --- */
+/* 这条规则确保了无论是左固定列还是右固定列，
+  其容器、表头单元格、表体单元格都拥有一个坚实的不透明背景色。
+*/
+.el-table__fixed,
+.el-table__fixed-right {
+  background-color: var(--erp-bg-panel);
+}
+.el-table__fixed-header-wrapper th.el-table__cell,
+.el-table__fixed-body-wrapper tr.el-table__row td.el-table__cell {
+  background-color: var(--erp-bg-panel);
+}
+
+.el-table__fixed-right-patch {
+    background-color: var(--erp-bg-panel) !important;
+    border-left: 1px solid var(--erp-border-color) !important;
+}
+/* --- [终极修复 V2] 强制为表格固定列的单元格设置背景色 --- */
+/* 这条规则使用 !important 来确保拥有最高优先级，
+  解决“仅在鼠标悬停时才正常显示”的视觉Bug。
+*/
+.el-table__fixed .el-table__row td.el-table__cell,
+.el-table__fixed-right .el-table__row td.el-table__cell {
+  background: var(--erp-bg-panel) !important;
+}

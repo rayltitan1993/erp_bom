@@ -11,6 +11,10 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: 'permissions', component: () => import('../views/dashboard/PermissionManagement.vue'), meta: { requiresAdmin: true }},
+      {
+        path: 'orders', // 定义路径为 /dashboard/orders
+        component: () => import('../views/dashboard/OrderManagement.vue')
+      },
       { 
         path: 'styles',
         component: () => import('../views/dashboard/StyleManagement.vue') 

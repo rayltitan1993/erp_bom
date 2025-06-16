@@ -1,199 +1,172 @@
 <template>
   <div>
     <h1>{{ isEditMode ? '编辑款式详情' : '添加新款式' }}</h1>
-    <el-form :model="styleData" label-width="120px" :disabled="!isPageEditable">
-      <el-form-item label="款式产品名称"><el-input v-model="styleData.name" /></el-form-item>
-      <el-form-item label="款式编号"><el-input v-model="styleData.styleNumber" /></el-form-item>
-      <el-form-item label="品牌"><el-input v-model="styleData.brand" /></el-form-item>
-    </el-form>
-
-    <el-divider />
-    <h2>颜色与尺码</h2>
-    <el-button @click="addColorGroup" type="success" style="margin-bottom: 20px;">添加颜色分组</el-button>
-
-    <div v-for="(group, groupIndex) in colorGroups" :key="group.id" class="color-group-card">
-      <div class="color-group-header">
-        <el-input v-model="group.color" placeholder="输入颜色" class="color-input" :disabled="!group.isEditing" />
-        <div class="color-group-actions">
-          <el-button type="success" @click="handleBom(group)">款式BOM</el-button>
-          <el-button type="warning" @click="toggleEditGroup(group)">{{ group.isEditing ? '完成' : '编辑' }}</el-button>
-          <el-button type="danger" @click="removeColorGroup(groupIndex)">删除</el-button>
-        </div>
-      </div>
-      <div class="size-container">
-        <el-tag
-          v-for="(size, sizeIndex) in group.sizes"
-          :key="size"
-          :closable="group.isEditing"
-          @close="removeSize(group, sizeIndex)"
-          style="margin-right: 5px; margin-bottom: 5px;"
-        >
-          {{ size }}
-        </el-tag>
-        <el-input
-          v-if="group.inputVisible && group.isEditing"
-          ref="sizeInputRef"
-          v-model="group.inputValue"
-          class="size-input"
-          @keyup.enter="handleSizeInputConfirm(group)"
-          @blur="handleSizeInputConfirm(group)"
-        />
-        <el-button v-if="group.isEditing && !group.inputVisible" class="button-new-size" size="small" @click="showSizeInput(group)">+ 添加尺码</el-button>
+    <div class="top-layout-grid">
+      <el-form :model="styleData" label-width="100px" class="main-info-form">
+        <el-form-item label="款式产品名称"><el-input v-model="styleData.name" /></el-form-item>
+        <el-form-item label="款式编号"><el-input v-model="styleData.styleNumber" :disabled="isEditMode" /></el-form-item>
+        <el-form-item label="品牌"><el-input v-model="styleData.brand" /></el-form-item>
+      </el-form>
+      <div class="image-upload-section">
+        <el-image class="style-image" :src="styleData.imageUrl" fit="contain">
+          <template #error><div class="image-slot"><span>暂无图片</span></div></template>
+        </el-image>
+        <el-upload
+          :action="uploadUrl" :headers="uploadHeaders" :show-file-list="false"
+          :on-success="handleImageSuccess" :on-error="handleImageError" :before-upload="beforeImageUpload" name="file" >
+          <el-button type="primary">添加/更改示意图</el-button>
+        </el-upload>
       </div>
     </div>
-    
+    <el-divider />
+    <h2>颜色与尺码</h2>
+    <div class="page-controls">
+      <el-button @click="addColorGroup" type="success">添加颜色分组</el-button>
+      <el-button @click="handleBatchExport" type="warning" v-if="isEditMode">批量导出BOM</el-button>
+    </div>
+    <div v-for="(group, groupIndex) in colorGroups" :key="group.id" class="color-group-card">
+      <div class="variant-inputs">
+        <el-form-item :label="`子ID: ${group.subId || '(保存后生成)'}`" label-width="180px">
+          <el-input v-model="group.color" placeholder="颜色" :disabled="!group.isEditing" />
+        </el-form-item>
+        <el-form-item label="腰围" label-width="80px"><el-input v-model="group.waist" placeholder="腰围" :disabled="!group.isEditing" /></el-form-item>
+        <el-form-item label="内长" label-width="80px"><el-input v-model="group.inseam" placeholder="内长" :disabled="!group.isEditing" /></el-form-item>
+      </div>
+      <div class="color-group-actions">
+        <el-button type="success" @click="handleBom(group)">款式BOM</el-button>
+        <el-button type="warning" @click="toggleEditGroup(group)">{{ group.isEditing ? '完成' : '编辑' }}</el-button>
+        <el-button type="danger" @click="removeColorGroup(groupIndex)">删除</el-button>
+      </div>
+    </div>
     <div class="footer-actions">
       <el-button @click="cancel">取消</el-button>
-      <el-button type="primary" @click="saveStyle">保存全部更改</el-button>
+      <el-button type="primary" @click="saveStyle">保存</el-button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, nextTick } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
+import { useAuthStore } from '@/store/auth.store';
+import styleService from '@/services/style.service';
+import bomService from '@/services/bom.service';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useRouter } from 'vue-router';
-import styleService from '../../services/style.service';
-import { ElMessage } from 'element-plus';
+import * as XLSX from 'xlsx';
+import JSZip from 'jszip'; // 1. 引入新安装的 jszip 库
 
+// --- 核心修改：全新、支持打包下载的批量导出函数 ---
+const handleBatchExport = async () => {
+  if (!props.id) return;
+
+  await ElMessageBox.confirm(
+    '这将把此款式下所有已保存的BOM，分别生成独立的Excel文件并打包成一个.zip文件进行下载。是否继续？',
+    '批量导出确认',
+    { confirmButtonText: '开始导出', cancelButtonText: '取消', type: 'info' }
+  );
+
+  ElMessage.info('正在获取并处理所有BOM数据，请稍候...');
+  try {
+    const bomsWithVariantInfo = await bomService.getBomsForStyle(props.id);
+    if (!bomsWithVariantInfo || bomsWithVariantInfo.length === 0) {
+      ElMessage.warning('此款式下没有任何已保存的BOM可供导出。');
+      return;
+    }
+
+    const zip = new JSZip(); // 2. 创建一个 JSZip 实例
+    const headerMapping = { bomMaterialName: '款式BOM材料名称', partUsed: '使用部位', materialCategory: '材料类别', materialItemNumber: '材料货号', materialName: '材料名称', colorRule: '颜色规则', specRule: '规格规则', consumptionRule: '用量规则', color: '颜色', spec: '规格', unitConsumption: '单件用量', unit: '单位' };
+
+    // 3. 循环处理每个BOM，在内存中生成独立的Excel文件
+    bomsWithVariantInfo.forEach(item => {
+      if (!item || !item.materials || item.materials.length === 0) return;
+
+      const dataToExport = item.materials.map((material, index) => {
+        const newRow = { '序号': index + 1 };
+        for (const key in headerMapping) { newRow[headerMapping[key]] = material[key] || ''; }
+        return newRow;
+      });
+      
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'BOM');
+      
+      // 定义每个独立Excel文件的名称
+      const fileName = `${styleData.name}-${styleData.styleNumber}-${item.subId}-${item.color}-${item.waist}-${item.inseam}-BOM.xlsx`;
+
+      // 将生成的Excel文件（二进制格式）添加到zip实例中
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      zip.file(fileName, excelBuffer);
+    });
+
+    if (Object.keys(zip.files).length === 0) {
+      ElMessage.warning('没有找到包含物料的BOM进行导出。');
+      return;
+    }
+
+    // 4. 生成 .zip 文件并触发下载
+    ElMessage.info('正在生成ZIP压缩包...');
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    
+    // 使用辅助函数来下载Blob对象
+    const zipFileName = `${styleData.name}-${styleData.styleNumber}-所有BOM.zip`;
+    downloadBlob(zipBlob, zipFileName);
+
+    ElMessage.success(`批量导出成功！已开始下载 ${zipFileName}。`);
+
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      console.error("批量导出失败:", error);
+      ElMessage.error('批量导出操作失败或被取消。');
+    }
+  }
+};
+
+// 辅助函数：用于下载Blob文件
+const downloadBlob = (blob, filename) => {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+};
+
+// --- 其他所有函数保持不变，为确保完整性，全部提供 ---
 const props = defineProps({ id: String });
 const router = useRouter();
+const authStore = useAuthStore();
 const isEditMode = computed(() => !!props.id);
-const isPageEditable = ref(!isEditMode.value);
-
-const colorGroups = ref([]); 
-const sizeInputRef = ref();
-const styleData = reactive({ name: '', styleNumber: '', brand: '', variants: [] });
-
-const toggleEditGroup = (group) => {
-  group.isEditing = !group.isEditing;
-  // 当点击“编辑”时，也让整个页面的主信息可编辑
-  if (group.isEditing) {
-    isPageEditable.value = true;
-  }
-};
-
-const handleBom = (group) => {
-  if (!isEditMode.value) {
-    ElMessage.warning('请先保存当前款式，然后才能为其管理BOM。');
-    return;
-  }
-  // 我们需要找到这个颜色/尺码组合在原始variants数组中的对应项
-  const firstVariant = styleData.variants.find(v => v.color === group.color);
-  if (!firstVariant) {
-    ElMessage.error('找不到对应的款式变体，请先保存。');
-    return;
-  }
-  router.push(`/dashboard/styles/${props.id}/variant/${firstVariant._id}/bom`);
-};
-
-const addColorGroup = () => {
-  isPageEditable.value = true;
-  colorGroups.value.push({
-    id: Date.now(),
-    color: '',
-    sizes: [],
-    inputVisible: false,
-    inputValue: '',
-    isEditing: true, // 新增的颜色组默认为编辑状态
-  });
-};
-
-const removeColorGroup = (index) => colorGroups.value.splice(index, 1);
-const removeSize = (group, index) => group.sizes.splice(index, 1);
-const showSizeInput = (group) => { group.inputVisible = true; nextTick(() => { sizeInputRef.value?.[0]?.focus(); }); };
-const handleSizeInputConfirm = (group) => {
-  if (group.inputValue && !group.sizes.includes(group.inputValue)) {
-    group.sizes.push(group.inputValue);
-  }
-  group.inputVisible = false;
-  group.inputValue = '';
-};
-
-const transformToVariants = () => {
-  const variants = [];
-  colorGroups.value.forEach(group => {
-    if (group.color && group.sizes.length > 0) {
-      group.sizes.forEach(size => {
-        // 查找原始variant，以保留BOM信息
-        const originalVariant = styleData.variants.find(v => v.color === group.color && v.size === size);
-        variants.push({ 
-          color: group.color, 
-          size: size,
-          bom: originalVariant ? originalVariant.bom : null,
-          _id: originalVariant ? originalVariant._id : undefined
-        });
-      });
-    }
-  });
-  return variants;
-};
-
-const transformToColorGroups = (variants = []) => {
-  const map = new Map();
-  variants.forEach(v => {
-    if (!map.has(v.color)) {
-      map.set(v.color, {
-        id: v.color, // 使用颜色作为key
-        color: v.color,
-        sizes: [],
-        inputVisible: false,
-        inputValue: '',
-        isEditing: false, // 默认不可编辑
-      });
-    }
-    map.get(v.color).sizes.push(v.size);
-  });
-  return Array.from(map.values());
-};
-
-const saveStyle = async () => {
-  const finalVariants = transformToVariants();
-  const payload = { ...styleData, variants: finalVariants };
-  delete payload.isPageEditable; 
-
-  if (payload.variants.length === 0) {
-    ElMessage.warning('请至少添加一个有效的颜色和尺码组合。');
-    return;
-  }
-  
-  try {
-    if (isEditMode.value) {
-      await styleService.updateStyle(props.id, payload);
-      ElMessage.success('款式更新成功');
-    } else {
-      await styleService.createStyle(payload);
-      ElMessage.success('款式创建成功');
-    }
-    router.push('/dashboard/styles');
-  } catch (error) {
-    ElMessage.error(error.response?.data?.message || '保存失败');
-  }
-};
-
+const backendUrl = 'http://localhost:3000';
+const uploadUrl = `${backendUrl}/api/upload/image`;
+const uploadHeaders = computed(() => ({ Authorization: `Bearer ${authStore.token}` }));
+const colorGroups = ref([]);
+const styleData = reactive({ name: '', styleNumber: '', brand: '', imageUrl: '', variants: [] });
+const sanitizeSheetName = (name) => { return name.replace(/[\\/?*[\]]/g, '').slice(0, 31); };
+const addColorGroup = () => { if (!styleData.styleNumber) { ElMessage.warning('请先填写款式编号！'); return; } const existingIndices = colorGroups.value.map(g => { if (!g.subId) return 0; const parts = g.subId.split('-'); return parts.length > 1 ? parseInt(parts[parts.length - 1], 10) : 0; }); const maxIndex = Math.max(0, ...existingIndices.filter(n => !isNaN(n))); const newSubId = `${styleData.styleNumber}-${maxIndex + 1}`; colorGroups.value.push({ id: Date.now(), subId: newSubId, color: '', waist: '', inseam: '', isEditing: true }); };
+const removeColorGroup = (index) => { colorGroups.value.splice(index, 1); };
+const toggleEditGroup = (group) => { group.isEditing = !group.isEditing; };
+const handleImageSuccess = (response) => { if (response.success && response.url) { styleData.imageUrl = `${backendUrl}${response.url}`; ElMessage.success('示意图上传成功!'); } else { ElMessage.error(response.message || '上传失败'); } };
+const handleImageError = () => { ElMessage.error('示意图上传失败'); };
+const beforeImageUpload = (rawFile) => { const isJpgOrPng = rawFile.type === 'image/jpeg' || rawFile.type === 'image/png'; if (!isJpgOrPng) { ElMessage.error('只支持 JPG/PNG 格式!'); return false; } const isLt2M = rawFile.size / 1024 / 1024 < 2; if (!isLt2M) { ElMessage.error('图片大小不能超过 2MB!'); return false; } return true; };
+const handleBom = (group) => { if (typeof group.id === 'number') { ElMessage.error('请先点击页面底部的“保存”按钮，以永久保存此新分组，然后才能编辑BOM。'); return; } router.push(`/dashboard/styles/${props.id}/variant/${group.id}/bom`); };
+const transformToVariants = () => { return colorGroups.value.map(group => { const originalVariant = styleData.variants.find(v => v._id === group.id); return { _id: originalVariant ? originalVariant._id : undefined, subId: group.subId, color: group.color, waist: group.waist, inseam: group.inseam, bom: originalVariant ? originalVariant.bom : null, }; }); };
+const transformToColorGroups = (variants = []) => { return variants.map(v => ({ id: v._id, subId: v.subId, color: v.color, waist: v.waist, inseam: v.inseam, isEditing: false, bom: v.bom })); };
+const saveStyle = async () => { const payload = { name: styleData.name, styleNumber: styleData.styleNumber, brand: styleData.brand, imageUrl: styleData.imageUrl, variants: transformToVariants(), }; try { if (isEditMode.value) { await styleService.updateStyle(props.id, payload); ElMessage.success('款式更新成功！'); loadStyleData(); } else { const newStyle = await styleService.createStyle(payload); ElMessage.success('款式创建成功！正在跳转到编辑模式...'); router.replace(`/dashboard/styles/edit/${newStyle._id}`); } } catch (error) { ElMessage.error(error.response?.data?.message || '保存失败'); } };
 const cancel = () => router.push('/dashboard/styles');
-
-const loadStyleData = async () => {
-  if (isEditMode.value) {
-    try {
-      const data = await styleService.getStyle(props.id);
-      Object.assign(styleData, data);
-      colorGroups.value = transformToColorGroups(data.variants);
-    } catch (error) {
-      ElMessage.error('加载款式数据失败');
-    }
-  }
-};
-
+const loadStyleData = async () => { if (isEditMode.value) { try { const data = await styleService.getStyle(props.id); Object.assign(styleData, data); colorGroups.value = transformToColorGroups(data.variants); } catch (error) { ElMessage.error('加载款式数据失败'); } } };
 onMounted(loadStyleData);
 </script>
 
 <style scoped>
+.top-layout-grid { display: flex; align-items: flex-start; gap: 24px; margin-bottom: 20px; }
+.main-info-form { flex-grow: 1; }
+.image-upload-section { flex-shrink: 0; width: 150px; display: flex; flex-direction: column; }
+.style-image { width: 150px; height: 150px; border-radius: var(--erp-border-radius); border: 1px solid var(--erp-border-color); margin-bottom: 10px; }
+.image-slot { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; background: #f5f7fa; color: var(--el-text-color-secondary); font-size: 14px; }
+.page-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.color-group-card { border: 1px solid var(--erp-border-color); border-radius: 4px; padding: 15px 20px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+.variant-inputs { display: flex; flex-grow: 1; gap: 15px; align-items: center; }
+.color-group-actions { padding-left: 20px; }
 .footer-actions { margin-top: 30px; text-align: right; }
-.color-group-card { border: 1px solid #dcdfe6; border-radius: 4px; padding: 15px; margin-bottom: 15px; }
-.color-group-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.color-input { font-weight: bold; max-width: 200px; }
-.color-input .el-input__inner { font-size: 16px; }
-.size-container { display: flex; flex-wrap: wrap; align-items: center; min-height: 32px; }
-.size-input { width: 90px; }
-.button-new-size { height: 32px; line-height: 30px; padding-top: 0; padding-bottom: 0; }
 </style>

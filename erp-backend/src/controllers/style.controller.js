@@ -1,5 +1,6 @@
 const Style = require('../models/style.model');
 
+
 exports.createStyle = async (req, res) => {
   try {
     const { name, styleNumber, brand, variants } = req.body;
@@ -22,10 +23,7 @@ exports.getStyles = async (req, res) => {
 
 exports.getStyleById = async (req, res) => {
   try {
-    // 在查询语句后添加 .populate('variants.bom')，并保留 .lean()
-    // 这会查找每个variant关联的bom，并将BOM的ID替换为BOM的完整文档
-    const style = await Style.findById(req.params.id).populate('variants.bom').lean(); 
-    
+    const style = await Style.findById(req.params.id).lean();
     if (!style) {
       return res.status(404).json({ message: '未找到该款式' });
     }

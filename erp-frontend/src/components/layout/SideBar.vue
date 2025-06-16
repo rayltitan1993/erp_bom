@@ -6,9 +6,12 @@
     </div>
 
     <nav class="menu">
+      <router-link to="/dashboard/orders">订单管理</router-link>
+      
       <router-link to="/dashboard/styles">款式管理</router-link>
       <router-link v-if="authStore.isAdmin" to="/dashboard/permissions">权限管理</router-link>
     </nav>
+
 
     <div class="logout-section">
       <el-button 
