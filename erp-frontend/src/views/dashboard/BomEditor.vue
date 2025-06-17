@@ -10,12 +10,16 @@
         <div class="header-row">
           <p><strong>子ID:</strong> {{ variantInfo.subId || '...' }}</p>
           <p><strong>颜色:</strong> {{ variantInfo.color || '...' }}</p>
-          <p><strong>腰围:</strong> {{ variantInfo.waist || '...' }}</p>
-          <p><strong>内长:</strong> {{ variantInfo.inseam || '...' }}</p>
+        </div>
+        <div class="header-row dimensions-row">
+          <p><strong>尺寸详情:</strong></p>
+          <el-tag v-if="!variantInfo.dimensions || variantInfo.dimensions.length === 0" type="info" size="small">无</el-tag>
+          <el-tag v-for="(dim, index) in variantInfo.dimensions" :key="index" type="info" size="small" style="margin-right: 5px;">
+            {{ dim }}
+          </el-tag>
         </div>
       </div>
     </div>
-    
     <div class="table-controls">
       <el-button @click="addMaterialRow" type="success">新增物料行</el-button>
       <div class="control-buttons">
@@ -24,10 +28,9 @@
         <el-button @click="exportToExcel" type="info">导出Excel</el-button>
       </div>
     </div>
-    
     <div class="table-container">
       <el-table :data="bomData.materials" border style="width: 100%;" size="small">
-        <el-table-column type="index" label="序号" width="55"></el-table-column>
+        <el-table-column type="index" label="序号" width="55" />
         <el-table-column label="款式BOM材料名称" width="150"><template #default="scope"><el-input v-model="scope.row.bomMaterialName" :disabled="!scope.row.isEditing" /></template></el-table-column>
         <el-table-column label="使用部位" width="120"><template #default="scope"><el-input v-model="scope.row.partUsed" :disabled="!scope.row.isEditing" /></template></el-table-column>
         <el-table-column label="材料类别" width="120"><template #default="scope"><el-input v-model="scope.row.materialCategory" :disabled="!scope.row.isEditing" /></template></el-table-column>
@@ -40,7 +43,6 @@
         <el-table-column label="规格" width="120"><template #default="scope"><el-input v-model="scope.row.spec" :disabled="!scope.row.isEditing" /></template></el-table-column>
         <el-table-column label="单件用量" width="150"><template #default="scope"><el-input-number v-model="scope.row.unitConsumption" :precision="3" :step="0.001" controls-position="right" style="width: 100%" :disabled="!scope.row.isEditing" /></template></el-table-column>
         <el-table-column label="单位" width="80"><template #default="scope"><el-input v-model="scope.row.unit" :disabled="!scope.row.isEditing" /></template></el-table-column>
-        
         <el-table-column label="操作" width="160">
           <template #default="scope">
             <el-button type="warning" size="small" @click="toggleRowEdit(scope.row)">{{ scope.row.isEditing ? '完成' : '编辑' }}</el-button>
@@ -48,7 +50,6 @@
           </template>
         </el-table-column>
       </el-table>
-
       <div class="footer-actions">
         <el-button @click="cancel">取消</el-button>
         <el-button type="primary" @click="saveBom">保存整个BOM</el-button>
@@ -58,7 +59,6 @@
 </template>
 
 <script setup>
-// Script部分与上次完全相同，是稳定可用的
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import styleService from '@/services/style.service'; 
@@ -71,21 +71,26 @@ const router = useRouter();
 const fileInput = ref(null);
 
 const styleInfo = reactive({ name: '', styleNumber: '' });
-const variantInfo = reactive({ subId: '', color: '', waist: '', inseam: '' });
+const variantInfo = reactive({ subId: '', color: '', dimensions: [] });
 const bomData = reactive({ materials: [] });
 
 const loadData = async () => {
   try {
     const style = await styleService.getStyle(props.styleId);
     if (!style) throw new Error("Style not found");
+    
     styleInfo.name = style.name;
     styleInfo.styleNumber = style.styleNumber;
+
     const currentVariant = style.variants.find(v => v._id === props.variantId);
     if (currentVariant) {
-      Object.assign(variantInfo, currentVariant);
+      variantInfo.subId = currentVariant.subId;
+      variantInfo.color = currentVariant.color;
+      variantInfo.dimensions = currentVariant.dimensions || [];
     } else {
       throw new Error("Variant not found in Style data");
     }
+    
     const bom = await bomService.getBomForVariant(props.variantId);
     if (bom && bom.materials) {
       bomData.materials = bom.materials.map(m => ({ ...m, isEditing: false }));
@@ -96,10 +101,25 @@ const loadData = async () => {
   }
 };
 
-const addMaterialRow = () => { bomData.materials.unshift({ isEditing: true }); };
-const removeMaterialRow = (index) => { ElMessageBox.confirm('确定要删除此行物料吗?', '提示', { type: 'warning' }).then(() => { bomData.materials.splice(index, 1); ElMessage.success('删除成功'); }).catch(() => {}); };
-const toggleRowEdit = (row) => { row.isEditing = !row.isEditing; };
-const triggerFileInput = () => { fileInput.value.click(); };
+const addMaterialRow = () => {
+  bomData.materials.unshift({ isEditing: true });
+};
+
+const removeMaterialRow = (index) => {
+  ElMessageBox.confirm('确定要删除此行物料吗?', '提示', { type: 'warning' })
+    .then(() => {
+      bomData.materials.splice(index, 1);
+      ElMessage.success('删除成功');
+    }).catch(() => {});
+};
+
+const toggleRowEdit = (row) => {
+  row.isEditing = !row.isEditing;
+};
+
+const triggerFileInput = () => {
+  fileInput.value.click();
+};
 
 const materialKeys = ['bomMaterialName', 'partUsed', 'materialCategory', 'materialItemNumber', 'materialName', 'colorRule', 'specRule', 'consumptionRule', 'color', 'spec', 'unitConsumption', 'unit'];
 const createMaterialSignature = (material) => materialKeys.map(key => material[key] || '').join('||');
@@ -134,30 +154,59 @@ const handleFileImport = (event) => {
 };
 
 const exportToExcel = () => {
-    if (bomData.materials.length === 0) { ElMessage.warning('没有可导出的BOM数据。'); return; }
+    if (bomData.materials.length === 0) {
+        ElMessage.warning('没有可导出的BOM数据。');
+        return;
+    }
     const headerMapping = { bomMaterialName: '款式BOM材料名称', partUsed: '使用部位', materialCategory: '材料类别', materialItemNumber: '材料货号', materialName: '材料名称', colorRule: '颜色规则', specRule: '规格规则', consumptionRule: '用量规则', color: '颜色', spec: '规格', unitConsumption: '单件用量', unit: '单位' };
-    const dataToExport = bomData.materials.map((item, index) => { const newItem = { '序号': index + 1 }; for (const key in headerMapping) { newItem[headerMapping[key]] = item[key] || ''; } return newItem; });
+    const dataToExport = bomData.materials.map((item, index) => {
+        const newItem = { '序号': index + 1 };
+        for (const key in headerMapping) {
+            newItem[headerMapping[key]] = item[key] || '';
+        }
+        return newItem;
+    });
+
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, variantInfo.subId || 'BOM');
-    const fileName = `${styleInfo.name}-${styleInfo.styleNumber}-${variantInfo.subId}-${variantInfo.color}-${variantInfo.waist}-${variantInfo.inseam}-BOM.xlsx`;
+    
+    const dimensionsString = (variantInfo.dimensions || []).join('-');
+    const fileName = `${styleInfo.name}-${styleInfo.styleNumber}-${variantInfo.subId}-${variantInfo.color}-${dimensionsString}-BOM.xlsx`;
+    
     XLSX.writeFile(workbook, fileName);
 };
 
 const saveBom = async () => {
   const validMaterials = bomData.materials.filter(material => materialKeys.some(key => { const value = material[key]; return value !== null && value !== undefined && value !== ''; }));
-  if (validMaterials.length !== bomData.materials.length) { ElMessage.info('已自动过滤未填写的空白物料行。'); }
-  if (validMaterials.length === 0) { ElMessage.warning('没有可保存的有效物料数据。'); return; }
-  const materialsToSave = validMaterials.map(m => { const { isEditing, ...rest } = m; return rest; });
+  if (validMaterials.length !== bomData.materials.length) {
+    ElMessage.info('已自动过滤未填写的空白物料行。');
+  }
+  if (validMaterials.length === 0) {
+    ElMessage.warning('没有可保存的有效物料数据。');
+    return;
+  }
+  const materialsToSave = validMaterials.map(m => {
+    const { isEditing, ...rest } = m;
+    return rest;
+  });
   try {
-    const payload = { styleId: props.styleId, variantId: props.variantId, materials: materialsToSave };
+    const payload = {
+      styleId: props.styleId,
+      variantId: props.variantId,
+      materials: materialsToSave
+    };
     await bomService.saveBomForVariant(payload);
     ElMessage.success('BOM保存成功');
     router.back();
-  } catch (error) { ElMessage.error(error.response?.data?.message || 'BOM保存失败'); }
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || 'BOM保存失败');
+  }
 };
 
-const cancel = () => router.back();
+const cancel = () => {
+  router.back();
+};
 
 onMounted(loadData);
 </script>
@@ -165,9 +214,10 @@ onMounted(loadData);
 <style scoped>
 .bom-header { background-color: #F8FAFC; padding: 15px 20px; margin-bottom: 20px; border-radius: var(--erp-border-radius); border: 1px solid var(--erp-border-color); }
 .header-details { margin-top: 15px; font-size: 14px; }
-.header-row { display: flex; gap: 30px; margin-bottom: 8px; }
-.header-details p { margin: 2px 0; color: var(--erp-text-secondary); }
-.header-details p strong { color: var(--erp-text-primary); min-width: 70px; display: inline-block; }
+.header-row { display: flex; flex-wrap: wrap; gap: 10px 30px; margin-bottom: 8px; align-items: center; }
+.header-details p { margin: 2px 0; color: var(--erp-text-secondary); display: flex; align-items: center; }
+.header-details p strong { color: var(--erp-text-primary); min-width: 85px; display: inline-block; flex-shrink: 0; }
+.dimensions-row { align-items: center; }
 .table-controls { display: flex; justify-content: space-between; align-items: center; }
 .control-buttons { display: flex; gap: 10px; }
 .table-container { margin-top: 10px; }
