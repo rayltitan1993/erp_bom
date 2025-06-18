@@ -1,10 +1,14 @@
 const mongoose = require('mongoose');
 
-// 在 Variant (SKU) 的结构中，用一个灵活的 dimensions 数组替换静态字段
+// NEW: Variant 结构变更，使用一个 Map 来存储动态的键值对属性
 const variantSchema = new mongoose.Schema({
   subId: { type: String },
-  color: { type: String, required: true },
-  dimensions: [{ type: String }], // 新增：存储 "腰围: 110" 这样的尺寸描述字符串
+  // REPLACED: 'color' 和 'dimensions' 被 'attributes' 替代
+  attributes: {
+    type: Map,
+    of: String,
+    required: true,
+  },
   bom: { type: mongoose.Schema.Types.ObjectId, ref: 'Bom' } 
 }, { _id: true });
 
@@ -13,6 +17,14 @@ const styleSchema = new mongoose.Schema({
   name: { type: String, required: true },
   brand: { type: String, default: '' },
   imageUrl: { type: String, default: '' },
+  
+  // NEW: 存储此款式所有变体的属性定义（例如 ["颜色", "腰围", "内长"]）
+  // 这个定义在创建第一个变体时被确定下来
+  variantAttributeSchema: {
+    type: [String],
+    default: []
+  },
+  
   variants: [variantSchema], 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   isArchived: { type: Boolean, default: false, index: true }

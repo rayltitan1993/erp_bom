@@ -27,22 +27,23 @@ exports.getBomByVariantId = async (req, res) => {
     }
 };
 
-/**
- * @desc 根据 Style ID 获取其下所有的BOM (最终重写版：手动聚合数据，确保100%可靠)
- */
+// CHANGED: 适配新的 variants.attributes 结构
 exports.getBomsByStyleId = async (req, res) => {
     try {
         const style = await Style.findById(req.params.styleId).populate({ path: 'variants.bom', model: 'Bom' }).lean();
         if (!style || !style.variants) { return res.status(200).json([]); }
+        
         const variantsWithBom = style.variants.filter(v => v.bom && v.bom.materials && v.bom.materials.length > 0);
+        
         const responseData = variantsWithBom.map(variant => ({
             variantId: variant._id,
             subId: variant.subId,
-            color: variant.color,
-            dimensions: variant.dimensions,
+            // CHANGED: 传递整个 attributes map
+            attributes: variant.attributes,
             materials: variant.bom.materials,
             updatedAt: variant.bom.updatedAt
         }));
+
         res.status(200).json(responseData);
     } catch (error) { res.status(500).json({ message: '批量获取BOM失败', error: error.message }); }
 };
