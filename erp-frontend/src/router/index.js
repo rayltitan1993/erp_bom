@@ -1,5 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../store/auth.store';
+import OrderManagement from '../views/dashboard/OrderManagement.vue';
+import OrderHistory from '../views/dashboard/OrderHistory.vue';
+import OrderEditor from '../views/dashboard/OrderEditor.vue'; 
+import TemplateBomEditor from '../views/dashboard/TemplateBomEditor.vue';
+import OrderBomEditor from '../views/dashboard/OrderBomEditor.vue';
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -10,6 +15,39 @@ const routes = [
     component: () => import('../components/layout/AppLayout.vue'),
     meta: { requiresAuth: true },
     children: [
+      {
+        path: 'orders',
+        name: 'OrderManagement',
+        component: OrderManagement,
+      },
+      {
+        path: 'orders/history',
+        name: 'OrderHistory',
+        component: OrderHistory,
+      },
+      {
+        path: 'styles/:styleId/variant/:variantId/bom',
+        name: 'TemplateBomEditor',
+        component: TemplateBomEditor,
+        props: true
+      },
+      {
+          path: 'orders/:orderId/item/:orderItemId/bom',
+          name: 'OrderBomEditor',
+          component: OrderBomEditor,
+          props: true
+      },
+      {
+        path: 'orders/new',
+        name: 'NewOrder',
+        component: OrderEditor,
+      },
+      {
+        path: 'orders/edit/:id',
+        name: 'EditOrder',
+        component: OrderEditor,
+        props: true,
+      },
       { path: 'permissions', component: () => import('../views/dashboard/PermissionManagement.vue'), meta: { requiresAdmin: true }},
       {
         path: 'orders', // 定义路径为 /dashboard/orders

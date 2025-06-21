@@ -42,6 +42,10 @@ class StyleService {
   deleteStyle(id) {
     return api.delete(`/styles/${id}`).then(res => res.data);
   }
+
+  searchStyles(query) {
+    return api.get('/styles/search', { params: { q: query } }).then(res => res.data);
+  }
 }
 
 export default new StyleService();

@@ -4,11 +4,29 @@ const Style = require('../models/style.model');
 exports.createStyle = async (req, res) => {
   try {
     const { name, styleNumber, brand, imageUrl, variants, variantAttributeSchema } = req.body;
-    const style = new Style({ name, styleNumber, brand, imageUrl, variantAttributeSchema, variants, createdBy: req.user._id });
+    const style = new Style({ 
+        name, 
+        styleNumber, 
+        brand, 
+        imageUrl, 
+        variantAttributeSchema, 
+        variants, 
+        createdBy: req.user._id 
+    });
     const savedStyle = await style.save();
     res.status(201).json(savedStyle);
-  } catch (error) { res.status(400).json({ message: '创建失败', error: error.message }); }
+  } catch (error) {
+    // FIXED: Check for duplicate key error (code 11000)
+    if (error.code === 11000) {
+      // Return a specific, user-friendly message
+      return res.status(409).json({ message: `创建失败：款式编号 "${error.keyValue.styleNumber}" 已存在。` });
+    }
+    // For all other errors, return a generic message
+    console.error("CREATE STYLE FAILED:", error);
+    res.status(400).json({ message: '创建失败，请检查填写的内容。', error: error.message });
+  }
 };
+
 
 exports.getStyles = async (req, res) => {
   try {
@@ -38,34 +56,27 @@ exports.updateStyle = async (req, res) => {
     const style = await Style.findById(req.params.id);
     if (!style) { return res.status(404).json({ message: '未找到该款式' }); }
     
-    style.name = req.body.name || style.name;
-    style.brand = req.body.brand || style.brand;
-    style.imageUrl = req.body.imageUrl;
+    // 只更新传入的字段
+    if(req.body.name) style.name = req.body.name;
+    if(req.body.brand) style.brand = req.body.brand;
+    if(req.body.imageUrl !== undefined) style.imageUrl = req.body.imageUrl;
     
-    // 如果款式的属性定义Schema首次被设定，则更新它
     if (req.body.variantAttributeSchema && style.variantAttributeSchema.length === 0) {
       style.variantAttributeSchema = req.body.variantAttributeSchema;
     }
     
-    // 更新 variants
     if (req.body.variants) {
-        style.variants = req.body.variants.map(v => {
-            const existingVariant = v._id ? style.variants.id(v._id) : null;
-            if (existingVariant) {
-                // 对于已存在的 variant，直接用新的数据覆盖
-                existingVariant.set(v);
-                return existingVariant;
-            } else {
-                // 对于新添加的 variant，直接返回新数据
-                return v; 
-            }
-        });
+        style.variants = req.body.variants;
     }
     
     const updatedStyle = await style.save();
     res.json(updatedStyle);
   } catch (error) {
-    console.error('Update Style Error:', error);
+    // FIXED: Also check for duplicate key error on update
+    if (error.code === 11000) {
+      return res.status(409).json({ message: `更新失败：款式编号 "${error.keyValue.styleNumber}" 与其他款式冲突。` });
+    }
+    console.error("UPDATE STYLE FAILED:", error);
     res.status(400).json({ message: '更新失败', error: error.message });
   }
 };
@@ -92,4 +103,23 @@ exports.permanentlyDeleteStyle = async (req, res) => {
     if (!style) { return res.status(404).json({ message: '未找到该款式' }); }
     res.json({ message: '款式已永久删除' });
   } catch (error) { res.status(500).json({ message: '操作失败', error }); }
+};
+
+exports.searchStyles = async (req, res) => {
+    try {
+        const query = req.query.q || '';
+        const searchRegex = new RegExp(query, 'i');
+        
+        const styles = await Style.find({
+            isArchived: false, // 只搜索有效款式
+            $or: [
+                { name: searchRegex },
+                { styleNumber: searchRegex }
+            ]
+        }).select('name styleNumber').limit(20); // 限制返回数量
+
+        res.json(styles);
+    } catch (error) {
+        res.status(500).json({ message: '搜索款式失败', error: error.message });
+    }
 };
