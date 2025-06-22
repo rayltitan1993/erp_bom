@@ -35,7 +35,15 @@
           <div class="info-text">{{ orderStore.order.orderNumber || '保存后自动生成' }}</div>
         </div>
         <div>
-          <el-button type="warning" size="large" style="width: 100%; margin-top: 24px;" :disabled="isEditing">订单生产BOM</el-button>
+          <el-button
+            type="warning"
+            size="large"
+            style="width: 100%; margin-top: 24px;"
+            :disabled="isEditing || isNewOrder"
+            @click="goToProductionBom"
+          >
+            订单生产BOM
+          </el-button>
         </div>
       </div>
     </div>
@@ -63,8 +71,8 @@
         <el-table-column label="操作" width="180" align="center">
           <template #default="scope">
             <el-button
-              type="primary"
-              link
+              type="primary" 
+              link 
               @click="editOrderBom(scope.row)"
               :disabled="isEditing || !orderStore.order._id"
             >
@@ -149,7 +157,9 @@ onMounted(() => {
   }
 });
 
-onBeforeUnmount(() => { orderStore.clearOrder(); });
+onBeforeUnmount(() => {
+  orderStore.clearOrder();
+});
 
 onBeforeRouteLeave((to, from, next) => {
   if (isEditing.value && orderStore.hasUnsavedChanges()) {
@@ -223,17 +233,15 @@ const handleSave = async () => {
         if (isNewOrder.value && savedOrder) {
             router.replace(`/dashboard/orders/edit/${savedOrder._id}`);
         }
-    } catch (e) { /* error handled in store */ }
+    } catch (e) {
+        // error handled in store
+    }
 };
 
-// NEW: Method to navigate to the order BOM editor
-const editOrderBom = (item) => {
-    router.push(`/dashboard/orders/${orderStore.order._id}/item/${item._id}/bom`);
-};
 
-const goBack = () => {
-  router.push('/dashboard/orders');
-};
+const editOrderBom = (item) => { router.push(`/dashboard/orders/${orderStore.order._id}/item/${item._id}/bom`); };
+const goToProductionBom = () => { if (orderStore.order?._id) router.push(`/dashboard/orders/${orderStore.order._id}/production-bom`); };
+const goBack = () => { router.push('/dashboard/orders'); };
 </script>
 
 <style scoped>

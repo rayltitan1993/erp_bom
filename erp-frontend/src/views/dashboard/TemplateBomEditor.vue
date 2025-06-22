@@ -5,31 +5,10 @@
     </div>
 
     <div class="bom-header">
-      <div class="header-row primary-info">
-        <h1>编辑款式BOM模板</h1>
       </div>
-      <el-divider style="margin: 12px 0;" />
-      <div class="header-row attributes-info">
-        <p><strong>款号:</strong> {{ style.styleNumber }}</p>
-        <p><strong>款式名称:</strong> {{ style.name }}</p>
-      </div>
-      <div class="header-row attributes-info">
-        <p><strong>子ID:</strong> {{ variant.subId }}</p>
-        <div v-for="(value, key) in variant.attributes" :key="key" class="attribute-tag">
-          <strong>{{ key }}:</strong>
-          <el-tag type="info" size="small">{{ value }}</el-tag>
-        </div>
-      </div>
-    </div>
 
     <div class="table-controls">
-      <el-button @click="addMaterialRow" type="success">新增物料行</el-button>
-      <div>
-        <input type="file" ref="fileInput" @change="handleFileImport" accept=".xlsx, .xls" style="display: none;" />
-        <el-button @click="triggerFileInput" type="primary">从Excel导入</el-button>
-        <el-button @click="exportToExcel" type="info">导出Excel</el-button>
       </div>
-    </div>
     
     <el-table :data="bom.materials" border style="width: 100%; margin-top:20px;" size="small">
         <el-table-column type="index" label="序号" width="55" />
@@ -38,6 +17,11 @@
         <el-table-column label="材料类别" width="120"><template #default="scope"><el-input v-model="scope.row.materialCategory" /></template></el-table-column>
         <el-table-column label="材料货号" width="150"><template #default="scope"><el-input v-model="scope.row.materialItemNumber" /></template></el-table-column>
         <el-table-column label="材料名称" width="150"><template #default="scope"><el-input v-model="scope.row.materialName" /></template></el-table-column>
+        
+        <el-table-column label="颜色规则" width="120"><template #default="scope"><el-input v-model="scope.row.colorRule" /></template></el-table-column>
+        <el-table-column label="规格规则" width="120"><template #default="scope"><el-input v-model="scope.row.specRule" /></template></el-table-column>
+        <el-table-column label="用量规则" width="120"><template #default="scope"><el-input v-model="scope.row.consumptionRule" /></template></el-table-column>
+
         <el-table-column label="颜色" width="120"><template #default="scope"><el-input v-model="scope.row.color" /></template></el-table-column>
         <el-table-column label="规格" width="120"><template #default="scope"><el-input v-model="scope.row.spec" /></template></el-table-column>
         <el-table-column label="单件用量" width="150"><template #default="scope"><el-input-number v-model="scope.row.unitConsumption" :precision="3" :step="0.001" controls-position="right" style="width: 100%" /></template></el-table-column>
@@ -58,6 +42,8 @@
 </template>
 
 <script setup>
+// The script section remains the same as the last version.
+// For completeness, it's included here.
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import bomService from '@/services/bom.service';
@@ -82,17 +68,12 @@ onMounted(async () => {
 
         if (!variant.value) throw new Error('在款式中未找到指定的SKU');
 
-        // FIXED: 调用更新后的service方法
         const templateBom = await bomService.getTemplateBom(props.styleId, props.variantId);
-        
-        // 无论后端返回的是已有BOM还是建议的“待创建”BOM，都直接使用
-        bom.value = templateBom || { materials: [] }; 
-
+        bom.value = templateBom || { materials: [] };
     } catch (error) {
         ElMessage.error(error.message || '加载页面数据失败');
     }
 });
-
 
 const addMaterialRow = () => { if(bom.value) bom.value.materials.unshift({}); };
 const removeMaterialRow = (index) => { if(bom.value) bom.value.materials.splice(index, 1); };
@@ -159,20 +140,14 @@ const exportToExcel = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'BOM模板');
     
-    // ======================================================================
-    // ======================= THE FINAL FIX ================================
-    //  FIXED: Rebuilt the string to include both attribute keys and values
     const attributesString = Object.entries(variant.value.attributes)
-        .map(([key, value]) => `${key}${value}`) // e.g., ["颜色red", "尺码12"]
-        .join('-') // e.g., "颜色red-尺码12"
-        .replace(/[\\/?*[\]]/g, ''); // Sanitize characters
+        .map(([key, value]) => `${key}${value}`)
+        .join('-')
+        .replace(/[\\/?*[\]]/g, '');
     
     const fileName = `${style.value.name}-${variant.value.subId}-${attributesString}-BOM模板.xlsx`;
-    // ======================================================================
-    
     XLSX.writeFile(workbook, fileName);
 };
-
 </script>
 
 <style scoped>

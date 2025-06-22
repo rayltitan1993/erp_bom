@@ -5,6 +5,8 @@ import OrderHistory from '../views/dashboard/OrderHistory.vue';
 import OrderEditor from '../views/dashboard/OrderEditor.vue'; 
 import TemplateBomEditor from '../views/dashboard/TemplateBomEditor.vue';
 import OrderBomEditor from '../views/dashboard/OrderBomEditor.vue';
+import ProductionBom from '../views/dashboard/ProductionBom.vue';
+
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -35,6 +37,12 @@ const routes = [
           path: 'orders/:orderId/item/:orderItemId/bom',
           name: 'OrderBomEditor',
           component: OrderBomEditor,
+          props: true
+      },
+      {
+          path: 'orders/:orderId/production-bom',
+          name: 'ProductionBom',
+          component: ProductionBom,
           props: true
       },
       {

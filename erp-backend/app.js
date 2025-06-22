@@ -10,6 +10,8 @@ const styleRoutes = require('./src/api/style.routes');
 const bomRoutes = require('./src/api/bom.routes');
 const orderRoutes = require('./src/api/order.routes');
 const uploadRoutes = require('./src/api/upload.routes');
+const productionBomRoutes = require('./src/api/productionBom.routes');
+
 
 const app = express();
 
@@ -25,6 +27,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' })); // 用于解析 
 
 // 3. 静态文件服务，用于访问上传的图片
 app.use('/uploads', express.static('public/uploads'));
+app.use('/api/production-boms', productionBomRoutes);
+
 
 
 // --- 数据库连接 ---
