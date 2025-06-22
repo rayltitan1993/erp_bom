@@ -1,7 +1,6 @@
-
-```
 erp_bom
 ├─ .DS_Store
+├─ README.md
 ├─ erp-backend
 │  ├─ .DS_Store
 │  ├─ .env
@@ -15,11 +14,14 @@ erp_bom
 │  │     ├─ processed-file-1750067346149-395822058.png
 │  │     ├─ processed-file-1750076855602-61468772.png
 │  │     ├─ processed-file-1750175740286-151983915.png
-│  │     └─ processed-file-1750180456828-254202976.png
+│  │     ├─ processed-file-1750180456828-254202976.png
+│  │     └─ processed-file-1750266049138-599402119.png
 │  └─ src
 │     ├─ api
 │     │  ├─ auth.routes.js
 │     │  ├─ bom.routes.js
+│     │  ├─ order.routes.js
+│     │  ├─ productionBom.routes.js
 │     │  ├─ style.routes.js
 │     │  ├─ upload.routes.js
 │     │  └─ user.routes.js
@@ -29,15 +31,19 @@ erp_bom
 │     ├─ controllers
 │     │  ├─ auth.controller.js
 │     │  ├─ bom.controller.js
-│     │  ├─ style.controller copy.js
+│     │  ├─ order.controller.js
+│     │  ├─ productionBom.controller.js
 │     │  ├─ style.controller.js
 │     │  ├─ upload.controller.js
 │     │  └─ user.controller.js
 │     ├─ middlewares
 │     │  └─ auth.middleware.js
 │     ├─ models
-│     │  ├─ bom.model.js
+│     │  ├─ order.model.js
+│     │  ├─ orderBom.model.js
+│     │  ├─ productionBom.model.js
 │     │  ├─ style.model.js
+│     │  ├─ templateBom.model.js
 │     │  └─ user.model.js
 │     └─ services
 │        ├─ auth.service.js
@@ -83,10 +89,13 @@ erp_bom
    │  │  ├─ api.js
    │  │  ├─ auth.service.js
    │  │  ├─ bom.service.js
+   │  │  ├─ order.service.js
+   │  │  ├─ productionBom.service.js
    │  │  ├─ style.service.js
    │  │  └─ user.service.js
    │  ├─ store
-   │  │  └─ auth.store.js
+   │  │  ├─ auth.store.js
+   │  │  └─ order.store.js
    │  └─ views
    │     ├─ .DS_Store
    │     ├─ Login.vue
@@ -94,10 +103,13 @@ erp_bom
    │     └─ dashboard
    │        ├─ .DS_Store
    │        ├─ BomEditor.vue
+   │        ├─ OrderBomEditor.vue
+   │        ├─ OrderEditor.vue
+   │        ├─ OrderHistory.vue
    │        ├─ OrderManagement.vue
    │        ├─ PermissionManagement.vue
+   │        ├─ ProductionBom.vue
    │        ├─ StyleEditor.vue
-   │        └─ StyleManagement.vue
+   │        ├─ StyleManagement.vue
+   │        └─ TemplateBomEditor.vue
    └─ vite.config.js
-
-```

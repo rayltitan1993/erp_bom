@@ -1,12 +1,57 @@
 const Order = require('../models/order.model');
+const OrderBom = require('../models/orderBom.model');
+const TemplateBom = require('../models/templateBom.model');
+
+/**
+ * 辅助函数：为订单项自动创建并关联BOM
+ * @param {Document} order - 刚被保存的Mongoose订单文档
+ * @returns {Promise<Document>} - 返回更新后的订单文档
+ */
+async function linkAndCreateBomsForOrderItems(order) {
+    let wasModified = false;
+
+    await Promise.all(order.items.map(async (item) => {
+        if (item.orderBomId) return;
+
+        const templateBom = await TemplateBom.findOne({ styleId: item.styleId }).lean();
+        if (!templateBom) {
+            console.log(`未找到款式 ${item.styleId} 的BOM模板，跳过自动创建。`);
+            return;
+        }
+
+        const newOrderBom = new OrderBom({
+            orderId: order._id,
+            orderItemId: item._id,
+            styleId: item.styleId,
+            variantId: item.variantId, // 【关键修复】从订单项中获取并传入 variantId
+            materials: templateBom.materials,
+        });
+        await newOrderBom.save();
+
+        item.orderBomId = newOrderBom._id;
+        wasModified = true;
+    }));
+
+    if (wasModified) {
+        order.markModified('items'); 
+        await order.save();
+    }
+    
+    return order;
+}
+
+// 统一的错误处理，提供更详细的日志
+function handleControllerError(res, error, messagePrefix) {
+    console.error(`${messagePrefix} Error:`, error);
+    const messages = error.errors ? Object.values(error.errors).map(e => e.message) : [error.message];
+    res.status(400).json({ message: `${messagePrefix}失败`, errors: messages });
+}
 
 
 exports.createOrder = async (req, res) => {
     try {
-        // 从请求体中获取所有数据，包括前端生成的orderNumber
         const { orderNumber, orderName, customerName, orderDate, items, notes, status } = req.body;
 
-        // 作为双重保险，如果前端没传订单号，后端仍然会生成一个
         let finalOrderNumber = orderNumber;
         if (!finalOrderNumber) {
             let isUnique = false;
@@ -20,33 +65,43 @@ exports.createOrder = async (req, res) => {
         }
 
         const order = new Order({
-            orderNumber: finalOrderNumber, // 使用最终确定的订单号
+            orderNumber: finalOrderNumber,
             orderName, customerName, orderDate, items, notes, status,
             createdBy: req.user._id
         });
         
         await order.save();
-        res.status(201).json(order);
+        const finalOrder = await linkAndCreateBomsForOrderItems(order);
+        
+        res.status(201).json(finalOrder);
     } catch (error) {
-        console.error("Create Order Error:", error);
-        res.status(400).json({ message: '创建订单失败', error: error.message });
+        handleControllerError(res, error, "创建订单");
     }
 };
 
 exports.updateOrder = async (req, res) => {
     try {
         const orderId = req.params.id;
-        // 在更新时，明确排除 orderNumber 和 customerName，防止它们被意外修改
         const { orderNumber, customerName, ...updateData } = req.body;
-        const updatedOrder = await Order.findByIdAndUpdate(orderId, updateData, { new: true });
-        if (!updatedOrder) return res.status(404).json({ message: '订单未找到' });
-        res.json(updatedOrder);
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ message: '订单未找到' });
+        }
+
+        Object.assign(order, updateData);
+        order.markModified('items'); 
+
+        await order.save();
+        const finalOrder = await linkAndCreateBomsForOrderItems(order);
+
+        res.json(finalOrder);
     } catch (error) {
-        console.error("Update Order Error:", error);
-        res.status(400).json({ message: '更新订单失败', error: error.message });
+        handleControllerError(res, error, "更新订单");
     }
 };
 
+// --- 其他路由控制器保持不变 ---
 
 exports.getOrders = async (req, res) => {
     try {
@@ -127,8 +182,9 @@ exports.reorder = async (req, res) => {
             createdBy: req.user._id,
         });
         await newOrder.save();
-        res.status(201).json(newOrder);
+        const finalOrder = await linkAndCreateBomsForOrderItems(newOrder);
+        res.status(201).json(finalOrder);
     } catch (error) {
-        res.status(400).json({ message: '复制订单失败', error: error.message });
+        handleControllerError(res, error, "复制订单");
     }
 };
