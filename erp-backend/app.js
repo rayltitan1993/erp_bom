@@ -7,7 +7,7 @@ require('dotenv').config();
 const authRoutes = require('./src/api/auth.routes');
 const userRoutes = require('./src/api/user.routes');
 const styleRoutes = require('./src/api/style.routes');
-const bomRoutes = require('./src/api/bom.routes');
+const bomRoutes = require('./src/api/bom.routes'); // 引入BOM路由
 const orderRoutes = require('./src/api/order.routes');
 const uploadRoutes = require('./src/api/upload.routes');
 const productionBomRoutes = require('./src/api/productionBom.routes');

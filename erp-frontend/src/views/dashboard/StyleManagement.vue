@@ -2,7 +2,7 @@
   <div>
     <div class="header-controls">
       <h1>款式管理</h1>
-      </div>
+    </div>
     <div class="header-controls">
       <el-radio-group v-model="activeView">
         <el-radio-button label="active">当前款式</el-radio-button>
@@ -50,12 +50,11 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
 const activeStyles = ref([]);
-const archivedStyles = ref([]); // 新增state
-const activeView = ref('active'); // active | archived
+const archivedStyles = ref([]);
+const activeView = ref('active');
 const sortOrder = ref('desc');
 const searchQuery = ref('');
 
-// 监听视图切换，并加载对应数据
 watch(activeView, (newView) => {
   if (newView === 'active') {
     fetchActiveStyles();
@@ -64,31 +63,38 @@ watch(activeView, (newView) => {
   }
 });
 
+// 【关键修复】补全搜索和排序逻辑
 const displayedStyles = computed(() => {
   let sourceData = activeView.value === 'active' ? activeStyles.value : archivedStyles.value;
-  // 筛选逻辑
-  if (searchQuery.value) { /* ... 保持不变 ... */ }
-  // 排序逻辑 (按updatedAt排序)
-  sourceData.sort((a, b) => {
+
+  // 1. 筛选逻辑
+  if (searchQuery.value.trim()) {
+    const lowerCaseQuery = searchQuery.value.toLowerCase().trim();
+    sourceData = sourceData.filter(style => 
+      (style.name && style.name.toLowerCase().includes(lowerCaseQuery)) ||
+      (style.styleNumber && style.styleNumber.toLowerCase().includes(lowerCaseQuery)) ||
+      (style.brand && style.brand.toLowerCase().includes(lowerCaseQuery))
+    );
+  }
+
+  // 2. 排序逻辑 (使用 ...sourceData 创建副本进行排序，避免修改原始数据)
+  return [...sourceData].sort((a, b) => {
     const dateA = new Date(a.updatedAt);
     const dateB = new Date(b.updatedAt);
-    return sortOrder.value === 'asc' ? dateA - dateB : dateB - a;
+    return sortOrder.value === 'asc' ? dateA - dateB : dateB - dateA;
   });
-  return sourceData;
 });
 
-// --- 数据获取 ---
 const fetchActiveStyles = async () => { try { activeStyles.value = await styleService.getStyles(); } catch (e) { ElMessage.error('获取款式列表失败'); } };
 const fetchArchivedStyles = async () => { try { archivedStyles.value = await styleService.getArchivedStyles(); } catch (e) { ElMessage.error('获取已删除列表失败'); } };
 
-// --- 操作方法 ---
 const addStyle = () => router.push('/dashboard/styles/new');
 const goToDetails = (id) => router.push(`/dashboard/styles/edit/${id}`);
 
 const archiveStyle = async (id) => {
   await ElMessageBox.confirm('确定要删除此款式吗？您可以在回收站中找回。', '删除确认', { type: 'warning' });
   try {
-    await styleService.deleteStyle(id); // 调用软删除API
+    await styleService.deleteStyle(id);
     ElMessage.success('已移至回收站');
     fetchActiveStyles();
   } catch (e) { ElMessage.error('删除失败'); }
@@ -98,8 +104,7 @@ const restoreStyle = async (id) => {
   try {
     await styleService.restoreStyle(id);
     ElMessage.success('款式已恢复');
-    fetchArchivedStyles(); // 从回收站移除
-    // 可选：切换回主列表 fetchActiveStyles(); activeView.value = 'active';
+    fetchArchivedStyles();
   } catch (e) { ElMessage.error('恢复失败'); }
 };
 

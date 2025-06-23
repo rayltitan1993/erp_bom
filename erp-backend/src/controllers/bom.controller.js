@@ -1,24 +1,27 @@
-// FIXED: 移除了对旧bom.model的引用，并引入了新的两个模型
 const TemplateBom = require('../models/templateBom.model');
-const Style = require('../models/style.model'); // 确保引入Style模型
+const Style = require('../models/style.model');
 const OrderBom = require('../models/orderBom.model');
 const Order = require('../models/order.model');
-// Style模型在这里不是必需的，可以移除
-// const Style = require('../models/style.model');
+
 
 // 保存“款式BOM模板”
 exports.saveTemplateBom = async (req, res) => {
+    const { styleId, variantId, materials } = req.body;
+
+    if (!styleId || !variantId) {
+        return res.status(400).json({ message: 'StyleId 和 VariantId 是必需的。' });
+    }
+
     try {
-        const { styleId, variantId, materials } = req.body;
-        // 使用 findOneAndUpdate 和 upsert:true 来实现“有则更新，无则创建”
-        const bom = await TemplateBom.findOneAndUpdate(
-            { variantId: variantId }, // 查询条件
-            { styleId, materials },    // 更新或创建的数据
-            { new: true, upsert: true, setDefaultsOnInsert: true } // 选项
+        const updatedBom = await TemplateBom.findOneAndUpdate(
+            { variantId: variantId },
+            { styleId, variantId, materials },
+            { new: true, upsert: true, runValidators: true }
         );
-        res.status(200).json(bom);
+        res.status(200).json(updatedBom);
     } catch (error) {
-        res.status(400).json({ message: '模板BOM保存失败', error: error.message });
+        console.error("保存BOM模板失败:", error);
+        res.status(500).json({ message: '服务器内部错误' });
     }
 };
 
@@ -26,25 +29,17 @@ exports.getTemplateBomForVariant = async (req, res) => {
     try {
         const { styleId, variantId } = req.params;
 
-        // 1. 尝试精确查找当前variant的BOM模板
         let bom = await TemplateBom.findOne({ variantId: variantId }).lean();
-        
-        // 2. 如果找到了，直接返回
         if (bom) {
             return res.status(200).json(bom);
         }
 
-        // 3. 如果没找到，查找同款式的其他任意一个模板作为复制来源
         const templateToCopy = await TemplateBom.findOne({ styleId: styleId }).lean();
-
-        // 4. 无论是否找到可复制的模板，都返回一个“待创建”的BOM结构给前端
-        //    让前端页面可以正常渲染，并由用户决定是否“保存”这个新模板
         const newBomData = {
             styleId: styleId,
             variantId: variantId,
-            materials: templateToCopy ? templateToCopy.materials : [] // 如果找到模板则复制物料，否则为空数组
+            materials: templateToCopy ? templateToCopy.materials : []
         };
-
         res.status(200).json(newBomData);
 
     } catch (error) {

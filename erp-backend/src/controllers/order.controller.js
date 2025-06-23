@@ -13,9 +13,11 @@ async function linkAndCreateBomsForOrderItems(order) {
     await Promise.all(order.items.map(async (item) => {
         if (item.orderBomId) return;
 
-        const templateBom = await TemplateBom.findOne({ styleId: item.styleId }).lean();
+        // 【关键修复】从按 styleId 模糊查找，改为按 variantId 精确查找
+        const templateBom = await TemplateBom.findOne({ variantId: item.variantId }).lean();
+        
         if (!templateBom) {
-            console.log(`未找到款式 ${item.styleId} 的BOM模板，跳过自动创建。`);
+            console.log(`未找到 variantId ${item.variantId} 的BOM模板，跳过自动创建。`);
             return;
         }
 
@@ -23,7 +25,7 @@ async function linkAndCreateBomsForOrderItems(order) {
             orderId: order._id,
             orderItemId: item._id,
             styleId: item.styleId,
-            variantId: item.variantId, // 【关键修复】从订单项中获取并传入 variantId
+            variantId: item.variantId,
             materials: templateBom.materials,
         });
         await newOrderBom.save();
@@ -40,7 +42,7 @@ async function linkAndCreateBomsForOrderItems(order) {
     return order;
 }
 
-// 统一的错误处理，提供更详细的日志
+// 统一的错误处理
 function handleControllerError(res, error, messagePrefix) {
     console.error(`${messagePrefix} Error:`, error);
     const messages = error.errors ? Object.values(error.errors).map(e => e.message) : [error.message];
@@ -100,8 +102,6 @@ exports.updateOrder = async (req, res) => {
         handleControllerError(res, error, "更新订单");
     }
 };
-
-// --- 其他路由控制器保持不变 ---
 
 exports.getOrders = async (req, res) => {
     try {
